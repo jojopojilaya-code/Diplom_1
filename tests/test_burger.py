@@ -1,7 +1,25 @@
-import pytest
+﻿import pytest
 from unittest.mock import Mock
 from praktikum.burger import Burger
 from data import BurgerTestData, IngredientTestData, ReceiptData
+
+
+class InvalidIngredient:
+    pass
+
+
+def _assert_bun_is_none(burger):
+    assert burger.bun is None, "Bun should be None after set_buns(None)"
+
+
+def _assert_last_ingredient_is_none(burger):
+    assert burger.ingredients[-1] is None, "Last ingredient should be None"
+
+
+POST_CHECKS = {
+    "bun_is_none": _assert_bun_is_none,
+    "last_ingredient_is_none": _assert_last_ingredient_is_none,
+}
 
 
 class TestBurger:
@@ -105,8 +123,6 @@ class TestBurger:
             burger_fixture.get_receipt()
 
     def test_get_receipt_with_invalid_ingredient_type(self, burger_fixture, mock_bun):
-        class InvalidIngredient:
-            pass
         invalid_ingredient = InvalidIngredient()
         burger_fixture.set_buns(mock_bun)
         burger_fixture.add_ingredient(invalid_ingredient)
@@ -124,30 +140,35 @@ class TestBurger:
 
 
     @pytest.mark.parametrize(
-        "method, args, should_raise, needs_preparation",
-        BurgerTestData.NONE_PARAMETERS_CASES
+        "method, args, post_check_id, needs_preparation",
+        BurgerTestData.NONE_PARAMETERS_ACCEPT_CASES
     )
-    def test_none_handling(
-        self, 
-        burger_fixture,          
-        burger_with_ingredient,  
-        method,                  
-        args,                    
-        should_raise,            
-        needs_preparation        
+    def test_none_handling_accepts(
+        self,
+        burger_fixture,
+        burger_with_ingredient,
+        method,
+        args,
+        post_check_id,
+        needs_preparation
     ):
-        
-        
         burger = burger_with_ingredient if needs_preparation else burger_fixture
-        
-        if should_raise:
-            with pytest.raises((TypeError, IndexError)):  
-                getattr(burger, method)(*args)  
-        else:
-            getattr(burger, method)(*args) 
-            
-            if method == "set_buns":
-                assert burger.bun is None, "Булочка должна быть None после set_buns(None)"
-                
-            elif method == "add_ingredient":
-                assert burger.ingredients[-1] is None, "Последний ингредиент должен быть None"
+        getattr(burger, method)(*args)
+        POST_CHECKS[post_check_id](burger)
+
+    @pytest.mark.parametrize(
+        "method, args, expected_exception, needs_preparation",
+        BurgerTestData.NONE_PARAMETERS_ERROR_CASES
+    )
+    def test_none_handling_raises(
+        self,
+        burger_fixture,
+        burger_with_ingredient,
+        method,
+        args,
+        expected_exception,
+        needs_preparation
+    ):
+        burger = burger_with_ingredient if needs_preparation else burger_fixture
+        with pytest.raises(expected_exception):
+            getattr(burger, method)(*args)
